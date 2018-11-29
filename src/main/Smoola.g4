@@ -75,7 +75,7 @@ statements
             $sts.add($st.st);
         }
 	)*;
-
+testcommand
 statement
 	returns[Statement st]:
 	{
