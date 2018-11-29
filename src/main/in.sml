@@ -5,7 +5,9 @@ class Main {
 }
 
 class d {
+    var arr: int[];
     def b() : String {
-        return "Salam";
+        arr = new int[4];
+        return arr.length;
     }
 }

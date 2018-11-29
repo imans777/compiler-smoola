@@ -4,6 +4,7 @@ import ast.Visitor;
 
 public class NewArray extends Expression {
     private Expression expression;
+    private int line = -1;
 
     public Expression getExpression() {
         return expression;
@@ -11,6 +12,14 @@ public class NewArray extends Expression {
 
     public void setExpression(Expression expression) {
         this.expression = expression;
+    }
+
+    public void setLine(int line) {
+        this.line = line;
+    }
+
+    public int getLine() {
+        return line;
     }
 
     @Override

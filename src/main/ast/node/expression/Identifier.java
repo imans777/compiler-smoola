@@ -4,6 +4,7 @@ import ast.Visitor;
 
 public class Identifier extends Expression {
     private String name;
+    private int line = -1;
 
     public Identifier(String name) {
         this.name = name;
@@ -17,10 +18,19 @@ public class Identifier extends Expression {
         this.name = name;
     }
 
+    public void setLine(int line) {
+        this.line = line;
+    }
+
+    public int getLine() {
+        return line;
+    }
+
     @Override
     public String toString() {
         return "Identifier " + name;
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

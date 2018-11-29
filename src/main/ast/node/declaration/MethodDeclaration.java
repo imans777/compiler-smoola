@@ -68,10 +68,15 @@ public class MethodDeclaration extends Declaration {
         this.localVars.add(localVar);
     }
 
+    public int getLine() {
+        return name.getLine();
+    }
+
     @Override
     public String toString() {
         return "MethodDeclaration";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

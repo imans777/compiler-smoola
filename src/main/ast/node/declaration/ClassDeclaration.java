@@ -48,6 +48,10 @@ public class ClassDeclaration extends Declaration{
         this.methodDeclarations.add(methodDeclaration);
     }
 
+    public int getLine() {
+        return name.getLine();
+    }
+
     @Override
     public String toString() {
         return "ClassDeclaration";
