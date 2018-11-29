@@ -107,12 +107,12 @@ expression
 expressionAssignment
 	returns[Expression expAssign]:
 	eor = expressionOr '=' ea = expressionAssignment {
-        Expression left = $eor.eor;
+        Expression left = $eor.expOr;
         Expression right = $ea.expAssign;
         $expAssign = new BinaryExpression(left, right, BinaryOperator.assign);
     }
 	| eo = expressionOr {
-        $expAssign = $eo.eor;
+        $expAssign = $eo.expOr;
     };
 
 expressionOr
