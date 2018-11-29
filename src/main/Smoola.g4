@@ -180,12 +180,13 @@ expressionOther
         $exp = new StringValue(str, type);
     }
 	| 'new ' 'int' '[' expArrLength = CONST_NUM ']' {
-        $exp = new NewArray();
+        NewArray newArr = new NewArray();
         Type type = new IntType();
         int num = Integer.parseInt($expArrLength.getText());
         Expression inside = new IntValue(num, type);
-        ((NewArray)$exp).setLine($expArrLength.getLine());
-        ((NewArray)$exp).setExpression(inside);
+        ((NewArray)newArr).setLine($expArrLength.getLine());
+        ((NewArray)newArr).setExpression(inside);
+        $exp = newArr;
     }
 	| 'new ' expClassId = ID '(' ')' {
         Identifier id = new Identifier($expClassId.getText());
@@ -207,12 +208,12 @@ expressionOther
     }
 	| expId = ID {
         Expression id = new Identifier($expId.getText());
-        id.setLine($expId.getLine());
-        $exp = new Identifier(id);
+        ((Identifier)id).setLine($expId.getLine());
+        $exp = id;
     }
 	| expArrId = ID '[' expArrIdx = expression ']' {
         Expression inst = new Identifier($expArrId.getText());
-        inst.setLine($expArrId.getLine());
+        ((Identifier)inst).setLine($expArrId.getLine());
         Expression indx = $expArrIdx.e;
         $exp = new ArrayCall(inst, indx);
     }
