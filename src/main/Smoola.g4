@@ -55,16 +55,65 @@ mainClass
         $cd.addMethodDeclaration(mmd);
     };
 
-classDeclaration:
-	'class' ID ('extends' ID)? '{' (varDeclaration)* (
-		methodDeclaration
+classDeclaration
+	returns[ClassDeclaration cdn]:
+	'class' cdname = ID {
+        Identifier cdnameid = new Identifier($cdname.getText());
+        Identifier cdparentid = new Identifier(null);
+        $cdn = new ClassDeclaration(cdnameid, cdparentid);
+        } (
+		'extends' parentname = ID {
+            Identifier pnameid = new Identifier($parentname.getText());
+            cdn.setParentName(pnameid);
+            }
+	)? '{' (
+		vd = varDeclaration {
+            $cdn.addVarDeclaration($vd.vd);
+            }
+	)* (
+		md = methodDeclaration {
+            $cdn.addMethodDeclaration($md.md);
+    }
 	)* '}';
 
-varDeclaration: 'var' ID ':' type ';';
+varDeclaration
+	returns[VarDeclaration vd]:
+	'var' vdname = ID ':' vdtype = type {
+        Identifier vdnameid = new Identifier($vdname.getText());
+        $vd = new VarDeclaration(vdnameid, $vdtype.t);
+    } ';';
 
-methodDeclaration:
-	'def' ID ('(' ')' | ('(' ID ':' type (',' ID ':' type)* ')')) ':' type '{' varDeclaration*
-		statements 'return' expression ';' '}';
+methodDeclaration
+	returns[MethodDeclaration md]:
+	'def' methodname = ID {
+        Identifier methodnameid = new Identifier($methodname.getText());
+        $md = new MethodDeclaration(methodnameid);
+    } (
+		'(' ')'
+		| (
+			'(' argname = ID ':' argtype = type {
+        Identifier argnameid = new Identifier($argname.getText()); 
+        VarDeclaration vardarg = new VarDeclaration(argnameid, $argtype.t);
+        $md.addArg(vardarg);
+    } (
+				',' argnameo = ID ':' argtypeo = type {
+        Identifier argnameoid = new Identifier($argnameo.getText());
+        VarDeclaration vardargo = new VarDeclaration(argnameoid, $argtypeo.t);
+        $md.addArg(vardargo);
+    }
+			)* ')'
+		)
+	) ':' returnType = type {
+        $md.setReturnType($returnType.t);
+    } '{' (
+		vard = varDeclaration {
+        $md.addLocalVar($vard.vd);
+    }
+	)* methodst = statements {
+        $md.addStatement($methodst.sts) //it get a statement, not array of statement    
+    } 'return' returnVal = expression {
+        $md.setReturnValue($returnVal.e);
+    } ';' '}';
 
 statements
 	returns[ArrayList<Statement> sts]:
@@ -79,24 +128,53 @@ statements
 statement
 	returns[Statement st]:
 	{
-        // fill these empty curly braces in correct format
         $st = new Statement();
-    } statementBlock {}
-	| statementCondition {}
-	| statementLoop {}
-	| statementWrite {}
-	| statementAssignment {};
+    } stblk = statementBlock {
+        $st = $stblk.stblk;
+    }
+	| stcond = statementCondition {
+        $st = $stcond.stcond;
+    }
+	| stloop = statementLoop {
+        $st = $stloop.stloop;
+    }
+	| stwr = statementWrite {
+        $st = $stwr.stwr;
+    }
+	| stassign = statementAssignment {
+        $st = $stassign.stassign;
+    };
 
-statementBlock: '{' statements '}';
+statementBlock
+	returns[Block stblk]:
+	'{' sts = statements {
+        $stblk = new Block($sts.sts) 
+    } '}';
 
-statementCondition:
-	'if' '(' expression ')' 'then' statement ('else' statement)?;
+statementCondition
+	returns[Conditional stcond]:
+	'if' '(' stcondexp = expression ')' 'then' consequencest = statement {
+        $stcond = new Conditional($stcondexp.e, $consequencest.st);
+    } (
+		'else' alternativest = statement {
+        $stcond.setAlternativeBody($alternativest.st);
+    }
+	)?;
 
-statementLoop: 'while' '(' expression ')' statement;
+statementLoop
+	returns[While stloop]:
+	'while' '(' loopcond = expression ')' loopbody = statement {
+        $stloop = new While($loopcond.e, $loopbody.st);
+    };
 
-statementWrite: 'writeln(' expression ')' ';';
+statementWrite
+	returns[Write stwr]:
+	'writeln(' starg = expression {
+        $stwr = new Write($starg.e);
+    } ')' ';';
 
-statementAssignment: expression ';';
+statementAssignment
+	returns[Assign stassign]: expression ';';
 
 expression
 	returns[Expression e]:
