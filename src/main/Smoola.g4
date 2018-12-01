@@ -18,6 +18,12 @@ grammar Smoola;
         System.out.println(obj);
     }
 
+    Identifier getID(String text, int line) {
+        Identifier id = new Identifier(text);
+        id.setLine(line);
+        return id;
+    }
+
     Program p = new Program();
 }
 
@@ -26,30 +32,29 @@ program:
         p.setMainClass($mc.cd);
     } (
 		oc = classDeclaration {
-            // set other class info
+            p.addClass($oc.cdn);
         }
 	)* EOF {
         // final checks and visits
-        // can be done in Smoola.java
+        // can be done in Smoola.java -> not needed for this phase!
     };
 
 mainClass
 	returns[ClassDeclaration cd]:
 	// name should be checked later
 	'class' cname = ID {
-        Identifier cnameid = new Identifier($cname.getText());
+        Identifier cnameid = getID($cname.getText(), $cname.getLine());
         Identifier cparentid = new Identifier(null);
         $cd = new ClassDeclaration(cnameid, cparentid);
     } '{' 'def' mmname = ID {
-        Identifier mmnameid = new Identifier($mmname.getText());
+        Identifier mmnameid = getID($mmname.getText(), $mmname.getLine());
         MethodDeclaration mmd = new MethodDeclaration(mmnameid);
     } '(' ')' ':' 'int' '{' sts = statements {
-        // TODO: uncomment this after finishing Statement grammar parts!
-        // for (Statement st: $sts.sts) {
-            // mmd.addStatement(st);
-        // }
-    } 'return' r = expression {
+        for (Statement st: $sts.sts) {
+            mmd.addStatement(st);
+        }
         mmd.setReturnType(new IntType());
+    } 'return' r = expression {
         mmd.setReturnValue($r.e);
     } ';' '}' '}' {
         $cd.addMethodDeclaration(mmd);
@@ -58,13 +63,13 @@ mainClass
 classDeclaration
 	returns[ClassDeclaration cdn]:
 	'class' cdname = ID {
-        Identifier cdnameid = new Identifier($cdname.getText());
+        Identifier cdnameid = getID($cdname.getText(), $cdname.getLine());
         Identifier cdparentid = new Identifier(null);
         $cdn = new ClassDeclaration(cdnameid, cdparentid);
         } (
 		'extends' parentname = ID {
-            Identifier pnameid = new Identifier($parentname.getText());
-            cdn.setParentName(pnameid);
+            Identifier pnameid = getID($parentname.getText(), $parentname.getLine());
+            $cdn.setParentName(pnameid);
             }
 	)? '{' (
 		vd = varDeclaration {
@@ -79,25 +84,25 @@ classDeclaration
 varDeclaration
 	returns[VarDeclaration vd]:
 	'var' vdname = ID ':' vdtype = type {
-        Identifier vdnameid = new Identifier($vdname.getText());
+        Identifier vdnameid = getID($vdname.getText(), $vdname.getLine());
         $vd = new VarDeclaration(vdnameid, $vdtype.t);
     } ';';
 
 methodDeclaration
 	returns[MethodDeclaration md]:
 	'def' methodname = ID {
-        Identifier methodnameid = new Identifier($methodname.getText());
+        Identifier methodnameid = getID($methodname.getText(), $methodname.getLine());
         $md = new MethodDeclaration(methodnameid);
     } (
 		'(' ')'
 		| (
 			'(' argname = ID ':' argtype = type {
-        Identifier argnameid = new Identifier($argname.getText()); 
+        Identifier argnameid = getID($argname.getText(), $argname.getLine()); 
         VarDeclaration vardarg = new VarDeclaration(argnameid, $argtype.t);
         $md.addArg(vardarg);
     } (
 				',' argnameo = ID ':' argtypeo = type {
-        Identifier argnameoid = new Identifier($argnameo.getText());
+        Identifier argnameoid = getID($argnameo.getText(), $argnameo.getLine());
         VarDeclaration vardargo = new VarDeclaration(argnameoid, $argtypeo.t);
         $md.addArg(vardargo);
     }
@@ -110,7 +115,8 @@ methodDeclaration
         $md.addLocalVar($vard.vd);
     }
 	)* methodst = statements {
-        $md.addStatement($methodst.sts) //it get a statement, not array of statement    
+        for(Statement si: $methodst.sts)
+            $md.addStatement(si);
     } 'return' returnVal = expression {
         $md.setReturnValue($returnVal.e);
     } ';' '}';
@@ -127,9 +133,7 @@ statements
 
 statement
 	returns[Statement st]:
-	{
-        $st = new Statement();
-    } stblk = statementBlock {
+	stblk = statementBlock {
         $st = $stblk.stblk;
     }
 	| stcond = statementCondition {
@@ -148,7 +152,7 @@ statement
 statementBlock
 	returns[Block stblk]:
 	'{' sts = statements {
-        $stblk = new Block($sts.sts) 
+        $stblk = new Block($sts.sts);
     } '}';
 
 statementCondition
@@ -179,7 +183,7 @@ statementAssignment
 expression
 	returns[Expression e]:
 	expa = expressionAssignment {
-        // $e = $expa.expAssign
+        $e = $expa.expAssign;
     };
 
 expressionAssignment
@@ -195,55 +199,216 @@ expressionAssignment
 
 expressionOr
 	returns[Expression expOr]:
-	ea = expressionAnd eort = expressionOrTemp {
-        
+	ea = expressionAnd eort = expressionOrTemp[$ea.expAnd] {
+        $expOr = $eort.expOrTemp;
     };
 
-expressionOrTemp: '||' expressionAnd expressionOrTemp |;
+expressionOrTemp[Expression pastExpOr]
+	returns[Expression expOrTemp]:
+	'||' ea = expressionAnd {
+        Expression right = $ea.expAnd;
+        BinaryExpression be = new BinaryExpression($pastExpOr, right, BinaryOperator.or);
+    } eort = expressionOrTemp[be] {
+        $expOrTemp = $eort.expOrTemp;
+    }
+	| {
+        $expOrTemp = $pastExpOr;
+    };
 
-expressionAnd: expressionEq expressionAndTemp;
+expressionAnd
+	returns[Expression expAnd]:
+	ee = expressionEq eat = expressionAndTemp[$ee.expEq] {
+        $expAnd = $eat.expAndTemp;
+    };
 
-expressionAndTemp: '&&' expressionEq expressionAndTemp |;
+expressionAndTemp[Expression pastExpAnd]
+	returns[Expression expAndTemp]:
+	'&&' ee = expressionEq {
+        Expression right = $ee.expEq;
+        BinaryExpression be = new BinaryExpression($pastExpAnd, right, BinaryOperator.and);
+    } eat = expressionAndTemp[be] {
+        $expAndTemp = $eat.expAndTemp;    
+    }
+	| {
+        $expAndTemp = $pastExpAnd;
+    };
 
-expressionEq: expressionCmp expressionEqTemp;
+expressionEq
+	returns[Expression expEq]:
+	ec = expressionCmp eet = expressionEqTemp[$ec.expCmp] {
+        $expEq = $eet.expEqTemp;
+    };
 
-expressionEqTemp:
-	('==' | '<>') expressionCmp expressionEqTemp
-	|;
+expressionEqTemp[Expression pastExpEq]
+	returns[Expression expEqTemp]:
+	{
+        BinaryOperator bo;
+    } (
+		'==' { bo = BinaryOperator.eq;
+    }
+		| '<>' {
+            bo = BinaryOperator.neq;
+        }
+	) ec = expressionCmp {
+        Expression right = $ec.expCmp;
+        BinaryExpression be = new BinaryExpression($pastExpEq, right, bo);
+    } eet = expressionEqTemp[be] {
+        $expEqTemp = $eet.expEqTemp;
+    }
+	| {
+        $expEqTemp = $pastExpEq;
+    };
 
-expressionCmp: expressionAdd expressionCmpTemp;
+expressionCmp
+	returns[Expression expCmp]:
+	ea = expressionAdd ect = expressionCmpTemp[$ea.expAdd] {
+        $expCmp = $ect.expCmpTemp;
+    };
 
-expressionCmpTemp:
-	('<' | '>') expressionAdd expressionCmpTemp
-	|;
+expressionCmpTemp[Expression pastExpCmp]
+	returns[Expression expCmpTemp]:
+	{
+        BinaryOperator bo;
+    } (
+		'<' {
+            bo = BinaryOperator.lt;
+        }
+		| '>' {
+            bo = BinaryOperator.gt;
+        }
+	) ea = expressionAdd {
+        Expression right = $ea.expAdd;
+        BinaryExpression be = new BinaryExpression($pastExpCmp, right, bo);
+    } ect = expressionCmpTemp[be] {
+        $expCmpTemp = $ect.expCmpTemp;
+    }
+	| {
+        $expCmpTemp = $pastExpCmp;
+    };
 
-expressionAdd: expressionMult expressionAddTemp;
+expressionAdd
+	returns[Expression expAdd]:
+	em = expressionMult eat = expressionAddTemp[$em.expMult] {
+        $expAdd = $eat.expAddTemp;
+    };
 
-expressionAddTemp:
-	('+' | '-') expressionMult expressionAddTemp
-	|;
+expressionAddTemp[Expression pastExpAdd]
+	returns[Expression expAddTemp]:
+	{
+        BinaryOperator bo;
+    } (
+		'+' {
+            bo = BinaryOperator.add;
+        }
+		| '-' {
+            bo =BinaryOperator.sub;
+        }
+	) em = expressionMult {
+        Expression right = $em.expMult;
+        BinaryExpression be = new BinaryExpression($pastExpAdd, right, bo);
+    } eat = expressionAddTemp[be] {
+        $expAddTemp = $eat.expAddTemp;
+    }
+	| {
+        $expAddTemp = $pastExpAdd;
+    };
 
-expressionMult: expressionUnary expressionMultTemp;
+expressionMult
+	returns[Expression expMult]:
+	eu = expressionUnary emt = expressionMultTemp[$eu.expUn] {
+        $expMult = $emt.expMultTemp;
+    };
 
-expressionMultTemp:
-	('*' | '/') expressionUnary expressionMultTemp
-	|;
+expressionMultTemp[Expression pastExpMult]
+	returns[Expression expMultTemp]:
+	{
+        BinaryOperator bo;
+    } (
+		'*' {
+        bo = BinaryOperator.mult;
+    }
+		| '/' {
+            bo = BinaryOperator.div;
+        }
+	) eu = expressionUnary {
+        Expression right = $eu.expUn;
+        BinaryExpression be = new BinaryExpression($pastExpMult, right, bo);
+    } emt = expressionMultTemp[be] {
+        $expMultTemp = $emt.expMultTemp;
+    }
+	| {
+        $expMultTemp = $pastExpMult;
+    };
 
-expressionUnary: ('!' | '-') expressionUnary | expressionMem;
+expressionUnary
+	returns[Expression expUn]:
+	{
+        UnaryOperator uo;
+    } (
+		'!' {
+            uo = UnaryOperator.not;
+        }
+		| '-' {
+            uo = UnaryOperator.minus;
+        }
+	) eu = expressionUnary {
+        $expUn = new UnaryExpression(uo, $eu.expUn);
+    }
+	| em = expressionMem {
+        $expUn = $em.expMem;
+    };
 
-expressionMem: expressionMethods expressionMemTemp;
+expressionMem
+	returns[Expression expMem]:
+	em = expressionMethods emt = expressionMemTemp[$em.expMethods] {
+        $expMem = $emt.expMemTemp;
+    };
 
-expressionMemTemp: '[' expression ']' |;
+expressionMemTemp[Expression pastExpMem]
+	returns[Expression expMemTemp]:
+	'[' e = expression {
+        $expMemTemp = new ArrayCall($pastExpMem, $e.e);
+     } ']'
+	| {
+        $expMemTemp = $pastExpMem;
+     };
 
-expressionMethods: expressionOther expressionMethodsTemp;
+expressionMethods
+	returns[Expression expMethods]:
+	eo = expressionOther emt = expressionMethodsTemp[$eo.exp] {
+        $expMethods = $emt.expMethodsTemp;        
+    };
 
-expressionMethodsTemp:
-	'.' (
-		ID '(' ')'
-		| ID '(' (expression (',' expression)*) ')'
-		| 'length'
-	) expressionMethodsTemp
-	|;
+expressionMethodsTemp[Expression pastExpMethods]
+	returns[Expression expMethodsTemp]:
+	{
+        Expression ec = null;
+    } '.' (
+		id = ID {
+            Identifier id = getID($id.getText(), $id.getLine());
+            ec = new MethodCall($pastExpMethods, id);
+        } '(' ')'
+		| id = ID {
+            Identifier id = getID($id.getText(), $id.getLine());
+            ec = new MethodCall($pastExpMethods, id);
+        } '(' (
+			ex = expression {
+                ((MethodCall)ec).addArg($ex.e);
+        } (
+				',' ex_repeat = expression {
+            ((MethodCall)ec).addArg($ex_repeat.e);
+        }
+			)*
+		) ')'
+		| 'length' {
+            ec = new Length($pastExpMethods);
+        }
+	) emt = expressionMethodsTemp[ec] {
+        $expMethodsTemp = $emt.expMethodsTemp;
+    }
+	| {
+        $expMethodsTemp = $pastExpMethods;
+    };
 
 expressionOther
 	returns[Expression exp]:
