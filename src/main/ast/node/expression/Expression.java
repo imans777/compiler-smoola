@@ -4,7 +4,7 @@ import ast.Type.Type;
 import ast.Visitor;
 import ast.node.Node;
 
-public abstract class Expression extends Node{
+public abstract class Expression extends Node {
     private Type type;
 
     public Type getType() {
@@ -16,5 +16,6 @@ public abstract class Expression extends Node{
     }
 
     @Override
-    public void accept(Visitor visitor) {}
+    public void accept(Visitor visitor) {
+    }
 }

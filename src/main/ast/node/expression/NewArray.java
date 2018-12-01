@@ -1,6 +1,8 @@
 package ast.node.expression;
 
 import ast.Visitor;
+import ast.node.expression.Value.IntValue;
+import ast.node.expression.UnaryExpression;
 
 public class NewArray extends Expression {
     private Expression expression;
@@ -8,6 +10,15 @@ public class NewArray extends Expression {
 
     public Expression getExpression() {
         return expression;
+    }
+
+    public int getInsideNumber() {
+        if (expression instanceof IntValue) {
+            return ((IntValue) expression).getConstant();
+        } else {
+            // minus numbers are handled in the grammar
+            return 0;
+        }
     }
 
     public void setExpression(Expression expression) {
@@ -26,6 +37,7 @@ public class NewArray extends Expression {
     public String toString() {
         return "NewArray";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

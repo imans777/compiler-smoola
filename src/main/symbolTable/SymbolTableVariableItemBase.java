@@ -18,7 +18,7 @@ public abstract class SymbolTableVariableItemBase extends SymbolTableItem {
     }
 
     public Type getType() {
-        return type;
+        return "var|" + type;
     }
 
     @Override

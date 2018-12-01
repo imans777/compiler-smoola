@@ -10,12 +10,12 @@ public class SymbolTable {
 	// Static members region
 
 	public static SymbolTable top;
-	
+
 	private static Stack<SymbolTable> stack = new Stack<SymbolTable>();
 
 	// Use it in pass 1 scope start
 	public static void push(SymbolTable symbolTable) {
-		if(top != null)
+		if (top != null)
 			stack.push(top);
 		top = symbolTable;
 	}
@@ -37,7 +37,7 @@ public class SymbolTable {
 	}
 
 	public void put(SymbolTableItem item) throws ItemAlreadyExistsException {
-		if(items.containsKey(item.getKey()))
+		if (items.containsKey(item.getKey()))
 			throw new ItemAlreadyExistsException();
 		items.put(item.getKey(), item);
 	}
@@ -48,9 +48,9 @@ public class SymbolTable {
 
 	public SymbolTableItem get(String key) throws ItemNotFoundException {
 		SymbolTableItem value = items.get(key);
-		if(value == null && pre != null)
+		if (value == null && pre != null)
 			return pre.get(key);
-		else if(value == null)
+		else if (value == null)
 			throw new ItemNotFoundException();
 		else
 			return value;

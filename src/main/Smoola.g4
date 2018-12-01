@@ -1,6 +1,7 @@
 grammar Smoola;
 
 @header {
+    import ast.*;
     import ast.node.*;
     import ast.node.declaration.*;
     import ast.node.expression.*;
@@ -37,6 +38,9 @@ program:
 	)* EOF {
         // final checks and visits
         // can be done in Smoola.java -> not needed for this phase!
+        VisitorImpl vis = new VisitorImpl();
+        p.accept(vis);
+        vis.show();
     };
 
 mainClass
@@ -178,7 +182,11 @@ statementWrite
     } ')' ';';
 
 statementAssignment
-	returns[Assign stassign]: expression ';';
+	returns[Assign stassign]:
+	stass = expression {
+        BinaryExpression be = (BinaryExpression)$stass.e;
+        $stassign = new Assign(be.getLeft(), be.getRight());
+    } ';';
 
 expression
 	returns[Expression e]:
