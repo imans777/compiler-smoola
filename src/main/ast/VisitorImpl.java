@@ -10,14 +10,18 @@ import ast.node.expression.Value.IntValue;
 import ast.node.expression.Value.StringValue;
 import ast.node.statement.*;
 import ast.Type.*;
+import ast.Type.UserDefinedType.UserDefinedType;
 import symbolTable.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class VisitorImpl implements Visitor {
     private ArrayList<String> preorderLogs = new ArrayList<String>();
     private ArrayList<String> errorLogs = new ArrayList<String>();
+    private int INDEX = 0;
+    private HashMap<String, SymbolTable> classST = new HashMap<>();
 
     // TODO: symbolTables need to be added here!
 
@@ -72,7 +76,6 @@ public class VisitorImpl implements Visitor {
         log(program.toString());
         SymbolTable.push(new SymbolTable());
         program.getMainClass().accept(this);
-        // ERROR #1 - check mainClass and main method existence
         for (ClassDeclaration cd : program.getClasses())
             cd.accept(this);
         SymbolTable.pop();
@@ -81,37 +84,88 @@ public class VisitorImpl implements Visitor {
     @Override
     public void visit(ClassDeclaration classDeclaration) {
         log(classDeclaration.toString());
-        // ERROR #2 - check class name redifinition
-        classDeclaration.getName().accept(this);
-        if (classDeclaration.getParentName() != null && classDeclaration.getParentName().getName() != null) {
-            // ERROR #0 - check class name existence
-            classDeclaration.getParentName().accept(this);
+        try {
+            SymbolTable.top.put(new SymbolTableVariableItemBase(classDeclaration.getName().getName(),
+                    new UserDefinedType(), INDEX++));
+        } catch (ItemAlreadyExistsException iaee) {
+            produceError(2, classDeclaration.getLine(), classDeclaration.getName().getName());
         }
+
+        if (classDeclaration.getParentName() != null && classDeclaration.getParentName().getName() != null) {
+            try {
+                // set pre symbolTable to its parent
+                SymbolTable.top.get("var|" + classDeclaration.getParentName().getName());
+                SymbolTable.push(new SymbolTable(classST.get(classDeclaration.getParentName().getName())));
+            } catch (ItemNotFoundException infe) {
+                // parent doesn't exist
+                produceError(0, classDeclaration.getLine(), classDeclaration.getParentName().getName());
+                SymbolTable.push(new SymbolTable());
+            }
+            classDeclaration.getParentName().accept(this);
+        } else {
+            // no extension
+            SymbolTable.push(new SymbolTable());
+        }
+
+        classDeclaration.getName().accept(this);
         for (VarDeclaration vd : classDeclaration.getVarDeclarations())
             vd.accept(this);
         for (MethodDeclaration md : classDeclaration.getMethodDeclarations())
             md.accept(this);
+
+        classST.put(classDeclaration.getName().getName(), SymbolTable.top);
+        SymbolTable.pop();
     }
 
     @Override
     public void visit(MethodDeclaration methodDeclaration) {
         log(methodDeclaration.toString());
-        // ERROR #4 - check method name redifinition
+        ArrayList<Type> argumentTypes = new ArrayList<>();
+        for (VarDeclaration v : methodDeclaration.getArgs())
+            argumentTypes.add(v.getType());
+
+        try {
+            // method existence in parents
+            SymbolTable.top.get("method|" + methodDeclaration.getName().getName());
+            produceError(4, methodDeclaration.getLine(), methodDeclaration.getName().getName());
+        } catch (ItemNotFoundException infe) {
+            try {
+                SymbolTable.top.put(new SymbolTableMethodItem(methodDeclaration.getName().getName(), argumentTypes));
+            } catch (ItemAlreadyExistsException iaee) {
+                // method existence in current scope
+                produceError(4, methodDeclaration.getLine(), methodDeclaration.getName().getName());
+            }
+        }
+        
+        SymbolTable.push(new SymbolTable());
         methodDeclaration.getName().accept(this);
-        for (VarDeclaration arg: methodDeclaration.getArgs())
+        for (VarDeclaration arg : methodDeclaration.getArgs())
             arg.accept(this);
         for (VarDeclaration vd : methodDeclaration.getLocalVars())
             vd.accept(this);
-        // ERROR #3 - variable name redifinition
+
         for (Statement st : methodDeclaration.getBody())
             st.accept(this);
         methodDeclaration.getReturnValue().accept(this);
+        SymbolTable.pop();
     }
 
     @Override
     public void visit(VarDeclaration varDeclaration) {
         log(varDeclaration.toString());
-        // ERROR #3 - variable name redifinition
+        try {
+            // variable existene in parents
+            SymbolTable.top.get("var|" + varDeclaration.getIdentifier().getName());
+            produceError(3, varDeclaration.getIdentifier().getLine(), varDeclaration.getIdentifier().getName());
+        } catch (ItemNotFoundException infe) {
+            try {
+                SymbolTable.top.put(new SymbolTableVariableItemBase(varDeclaration.getIdentifier().getName(),
+                        varDeclaration.getType(), INDEX++));
+            } catch (ItemAlreadyExistsException iaee) {
+                // variable existence in current scope
+                produceError(3, varDeclaration.getIdentifier().getLine(), varDeclaration.getIdentifier().getName());
+            }
+        }
         varDeclaration.getIdentifier().accept(this);
     }
 
@@ -132,7 +186,6 @@ public class VisitorImpl implements Visitor {
     @Override
     public void visit(Identifier identifier) {
         log(identifier.toString());
-        // ERROR #0 - check name existence (maybe not here?)
     }
 
     @Override
@@ -146,7 +199,7 @@ public class VisitorImpl implements Visitor {
         log(methodCall.toString());
         methodCall.getInstance().accept(this);
         methodCall.getMethodName().accept(this);
-        for (Expression arg: methodCall.getArgs())
+        for (Expression arg : methodCall.getArgs())
             arg.accept(this);
     }
 
