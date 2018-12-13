@@ -16,6 +16,7 @@ src/main/*.tokens
 src/main/Smoola*.java
 src/main/Smoola*.class
 **/*.class
+**/M*_ERR_*
 
 # User-specific stuff
 .idea/**/workspace.xml
