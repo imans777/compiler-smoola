@@ -23,8 +23,6 @@ public class VisitorImpl implements Visitor {
     private int INDEX = 0;
     private HashMap<String, SymbolTable> classST = new HashMap<>();
 
-    // TODO: symbolTables need to be added here!
-
     public boolean hasError() {
         if (errorLogs.size() > 0) {
             return true;
@@ -136,7 +134,7 @@ public class VisitorImpl implements Visitor {
                 produceError(4, methodDeclaration.getLine(), methodDeclaration.getName().getName());
             }
         }
-        
+
         SymbolTable.push(new SymbolTable());
         methodDeclaration.getName().accept(this);
         for (VarDeclaration arg : methodDeclaration.getArgs())
@@ -266,6 +264,11 @@ public class VisitorImpl implements Visitor {
         conditional.getExpression().accept(this);
         conditional.getConsequenceBody().accept(this);
         conditional.getAlternativeBody().accept(this);
+    }
+
+    @Override
+    public void visit(MethodCallInMain methodCallInMain) {
+        // TODO: implement appropriate visit functionality
     }
 
     @Override
