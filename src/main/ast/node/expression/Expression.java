@@ -5,7 +5,8 @@ import ast.Visitor;
 import ast.node.Node;
 
 public abstract class Expression extends Node {
-    private Type type;
+    private Type type = null;
+    private int line = -1;
 
     public Type getType() {
         return type;
@@ -13,6 +14,14 @@ public abstract class Expression extends Node {
 
     public void setType(Type type) {
         this.type = type;
+    }
+
+    public int getLine() {
+        return line;
+    }
+
+    public void setLine(int line) {
+        this.line = line;
     }
 
     @Override

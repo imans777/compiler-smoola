@@ -4,6 +4,15 @@ import ast.Visitor;
 import ast.node.Node;
 
 public class Statement extends Node {
+    private int line = -1;
+
+    public int getLine() {
+        return line;
+    }
+
+    public void setLine(int line) {
+        this.line = line;
+    }
 
     @Override
     public String toString() {
@@ -11,5 +20,6 @@ public class Statement extends Node {
     }
 
     @Override
-    public void accept(Visitor visitor) {}
+    public void accept(Visitor visitor) {
+    }
 }
