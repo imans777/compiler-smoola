@@ -24,24 +24,19 @@ grammar Smoola;
         id.setLine(line);
         return id;
     }
-
-    Program p = new Program();
 }
 
-program:
-	mc = mainClass {
-        p.setMainClass($mc.cd);
+program
+	returns[Program p]:
+	{
+        $p = new Program();
+    } mc = mainClass {
+        $p.setMainClass($mc.cd);
     } (
 		oc = classDeclaration {
-            p.addClass($oc.cdn);
-        }
-	)* EOF {
-        // final checks and visits
-        // can be done in Smoola.java -> not needed for this phase!
-        VisitorImpl vis = new VisitorImpl();
-        p.accept(vis);
-        vis.show();
-    };
+            $p.addClass($oc.cdn);
+    }
+	)* EOF;
 
 mainClass
 	returns[ClassDeclaration cd]:
