@@ -1,5 +1,6 @@
 class Main {
     def main() : int {
+        new c().func(3);
         writeln(new c().func(3));
         return x;
     }
