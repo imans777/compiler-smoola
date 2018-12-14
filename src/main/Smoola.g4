@@ -48,7 +48,7 @@ mainClass
     } '{' 'def' mmname = ID {
         Identifier mmnameid = getID($mmname.getText(), $mmname.getLine());
         MethodDeclaration mmd = new MethodDeclaration(mmnameid);
-    } '(' ')' ':' 'int' '{' sts = statements {
+    } '(' ')' ':' 'int' '{' sts = mainStatements {
         for (Statement st: $sts.sts) {
             mmd.addStatement(st);
         }
@@ -130,6 +130,16 @@ statements
         }
 	)*;
 
+mainStatements
+	returns[ArrayList<Statement> sts]:
+	{
+        $sts = new ArrayList<Statement>();
+    } (
+		st = mainStatement {
+            $sts.add($st.st);
+        }
+	)*;
+
 statement
 	returns[Statement st]:
 	stblk = statementBlock {
@@ -146,6 +156,24 @@ statement
     }
 	| stassign = statementAssignment {
         $st = $stassign.stassign;
+    };
+
+mainStatement
+	returns[Statement st]:
+	stblk = statementBlock {
+        $st = $stblk.stblk;
+    }
+	| stcond = statementCondition {
+        $st = $stcond.stcond;
+    }
+	| stloop = statementLoop {
+        $st = $stloop.stloop;
+    }
+	| stwr = statementWrite {
+        $st = $stwr.stwr;
+    }
+	| staam = mainStatementAssignmentAndMethodCall {
+        $st = $staam.staam;
     };
 
 statementBlock
@@ -181,6 +209,21 @@ statementAssignment
 	stass = expression {
         BinaryExpression be = (BinaryExpression)$stass.e;
         $stassign = new Assign(be.getLeft(), be.getRight());
+    } ';';
+
+mainStatementAssignmentAndMethodCall
+	returns[Statement staam]:
+	aam = expression {
+        if ($aam.e instanceof BinaryExpression) {
+            BinaryExpression be = (BinaryExpression)$aam.e;
+            $staam = new Assign(be.getLeft(), be.getRight());
+        } else if ($aam.e instanceof MethodCall) {
+            Expression mcime = ((MethodCall)$aam.e).getInstance();
+            Identifier mcimi = ((MethodCall)$aam.e).getMethodName();
+            ArrayList<Expression> mcimarg = ((MethodCall)$aam.e).getArgs();
+            $staam = new MethodCallInMain(mcime, mcimi);
+            ((MethodCallInMain)$staam).setArgs(mcimarg);
+        }
     } ';';
 
 expression
@@ -419,11 +462,13 @@ expressionOther
         Type type = new IntType();
         int num = Integer.parseInt($expNum.getText());
         $exp = new IntValue(num, type);
+        $exp.setLine($expNum.getLine());
     }
 	| expStr = CONST_STR {
         Type type = new StringType();
         String str = $expStr.getText();
         $exp = new StringValue(str, type);
+        $exp.setLine($expStr.getLine());
     }
 	| 'new ' 'int' '[' expArrLength = CONST_NUM ']' {
         NewArray newArr = new NewArray();
@@ -441,16 +486,20 @@ expressionOther
     }
 	| expThis = 'this' {
         $exp = new This();
+        $exp.setLine($expThis.getLine());
+        $exp.setType(new UserDefinedType());
     }
 	| expT = 'true' {
         Type type = new BooleanType();
         boolean val = true;
         $exp = new BooleanValue(val, type);
+        $exp.setLine($expT.getLine());
     }
 	| expF = 'false' {
         Type type = new BooleanType();
         boolean val = false;
         $exp = new BooleanValue(val, type);
+        $exp.setLine($expF.getLine());
     }
 	| expId = ID {
         Expression id = new Identifier($expId.getText());

@@ -40,6 +40,10 @@ public class MethodCallInMain extends Statement {
         this.args.add(arg);
     }
 
+    public void setArgs(ArrayList<Expression> args) {
+        this.args = args;
+    }
+
     @Override
     public String toString() {
         return "MethodCallInMain";
