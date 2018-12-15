@@ -10,6 +10,8 @@ import ast.node.expression.Value.IntValue;
 import ast.node.expression.Value.StringValue;
 import ast.node.statement.*;
 import ast.Type.*;
+import ast.Type.ArrayType.*;
+import ast.Type.PrimitiveType.*;
 import ast.Type.UserDefinedType.UserDefinedType;
 import symbolTable.*;
 
@@ -48,6 +50,7 @@ public class VisitorImpl implements Visitor {
         }
     }
 
+    // --> Phase 2 Errors
     // ERROR #0 - name not found (in symbolTable)
     // ERROR #1 - check mainClass existence
     // ERROR #2 - check class name redifinition
@@ -63,12 +66,60 @@ public class VisitorImpl implements Visitor {
         errors.add("Redefinition of variable " + info);
         errors.add("Redefinition of method " + info);
         errors.add("Array length should not be zero or negative");
+
         message += errors.get(type);
         err(message);
     }
 
-    // visit implemnetations
+    // --> Phase 3 Errors
+    // ERROR#40 - this is not supported in main
+    // ERROR#31 - variable <variableName> is not declared
+    // ERROR#32 - unsupported operand type for <operationName>
+    // ERROR#33 - condition type must be boolean
+    // ERROR#34 - class <className> is not declared
+    // ERROR#35 - there is no method named <methodName> in class <className>
+    // ERROR#36 - unsupported type for writeln
+    // ERROR#37 - left side of assignment must be a valid lvalue
+    // ERROR#38 - <methodName> return type must be <declaratedReturnType>
+    // ERROR#49 - method <methodName> arguments does not match with its declaration
+    // ERROR#50 - self class inheritence
+    // ERROR#51 - circular class inheritence
+    public void produceError3(int type, int line, String info, String info2) {
+        String message = "line:" + line + ":";
+        ArrayList<String> errors = new ArrayList<String>();
+        errors.add("'this' is not supported in main");
+        errors.add("variable " + info + " is not declared");
+        errors.add("unsuppored operand type for " + info);
+        errors.add("condition type must be boolean");
+        errors.add("class " + info + " is not declared");
+        errors.add("there is no method named " + info + " in class " + info2);
+        errors.add("unsupported type for writeln");
+        errors.add("left side of assignment must be a valid lvalue");
+        errors.add(info + " return type must be " + info2);
+        errors.add("method " + info + " arguments does not match with its declaration");
 
+        errors.add("self class inheritence");
+        errors.add("circular class inheritence");
+
+        int index = type % 10;
+        int set = type / 10;
+        if (set == 5)
+            message += errors.get(index + 10);
+        else
+            message += errors.get(index);
+        err(message);
+    }
+
+    public void produceError3(int type, int line, String info) {
+        produceError3(type, line, info, null);
+    }
+
+    public void produceError3(int type, int line) {
+        produceError3(type, line, null);
+    }
+
+    // visit implemnetations
+    // NOTE: decided not to implement parent class declaration after child class!
     @Override
     public void visit(Program program) {
         log(program.toString());
@@ -79,6 +130,7 @@ public class VisitorImpl implements Visitor {
         SymbolTable.pop();
     }
 
+    // --------------------------- Declarations ----------------------------
     @Override
     public void visit(ClassDeclaration classDeclaration) {
         log(classDeclaration.toString());
@@ -152,8 +204,8 @@ public class VisitorImpl implements Visitor {
     public void visit(VarDeclaration varDeclaration) {
         log(varDeclaration.toString());
         try {
-            // variable existene in parents
-            SymbolTable.top.get("var|" + varDeclaration.getIdentifier().getName());
+            // variable existene in parents // TODO: check inCurrentScope
+            SymbolTable.top.getInCurrentScope("var|" + varDeclaration.getIdentifier().getName());
             produceError(3, varDeclaration.getIdentifier().getLine(), varDeclaration.getIdentifier().getName());
         } catch (ItemNotFoundException infe) {
             try {
@@ -167,6 +219,7 @@ public class VisitorImpl implements Visitor {
         varDeclaration.getIdentifier().accept(this);
     }
 
+    // -------------------------------- Expressions --------------------------------
     @Override
     public void visit(ArrayCall arrayCall) {
         log(arrayCall.toString());
@@ -184,6 +237,12 @@ public class VisitorImpl implements Visitor {
     @Override
     public void visit(Identifier identifier) {
         log(identifier.toString());
+        try { // TODO: what is get?
+            SymbolTableItem sti = SymbolTable.top.get("var|" + identifier.getName());
+            identifier.setType(sti.getType());
+        } catch (Exception infe) {
+            System.out.println("item not found exception");
+        }
     }
 
     @Override
@@ -227,6 +286,7 @@ public class VisitorImpl implements Visitor {
     public void visit(UnaryExpression unaryExpression) {
         log(unaryExpression.toString());
         unaryExpression.getValue().accept(this);
+        unaryExpression.setType(unaryExpression.getValue().getType());
     }
 
     @Override
@@ -244,6 +304,7 @@ public class VisitorImpl implements Visitor {
         log(value.toString());
     }
 
+    // -------------------------------- Statements --------------------------------
     @Override
     public void visit(Assign assign) {
         log(assign.toString());
@@ -268,7 +329,11 @@ public class VisitorImpl implements Visitor {
 
     @Override
     public void visit(MethodCallInMain methodCallInMain) {
-        // TODO: implement appropriate visit functionality
+        log(methodCallInMain.toString());
+        methodCallInMain.getInstance().accept(this);
+        methodCallInMain.getMethodName().accept(this);
+        for (Expression arg : methodCallInMain.getArgs())
+            arg.accept(this);
     }
 
     @Override
@@ -282,5 +347,22 @@ public class VisitorImpl implements Visitor {
     public void visit(Write write) {
         log(write.toString());
         write.getArg().accept(this);
+
+        Type t = write.getArg().getType();
+        System.out.println(t instanceof Type);
+        System.out.println(t instanceof IntType);
+        System.out.println(t instanceof StringType);
+        System.out.println(t instanceof BooleanType);
+        System.out.println(t instanceof NoType);
+        System.out.println(t instanceof UserDefinedType); // TODO: why String typed variable in the same scope is UserDefined?!
+        System.out.println(t == null);
+        System.out.println("-----------");
+
+        // System.out.println(t.getClass().getName());
+
+        // if (write.getArg().getType().toString() != "int" ||
+        // write.getArg().getType().toString() != "string") {
+        // produceError3(36, write.getArg().getLine()); // line is not declared for statement!!!
+        // }
     }
 }
