@@ -41,9 +41,21 @@ public class MethodCall extends Expression {
     }
 
     @Override
+    public int getLine() {
+        if (line != -1)
+            return line;
+        else if (instance.getLine() != -1)
+            line = instance.getLine();
+        else if (methodName.getLine() != -1)
+            line = methodName.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "MethodCall";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

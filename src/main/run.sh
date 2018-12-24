@@ -5,7 +5,8 @@ set CLASSPATH="antlr-4.7.1-complete.jar:$CLASSPATH"
 ./clean.sh
 java -jar antlr-4.7.1-complete.jar Smoola.g4
 javac *.java
-java Smoola $INPUT_NAME
+java MySmoola $INPUT_NAME
+# java -agentlib:jdwp=transport=dt_socket,address=localhost:8888,server=y,suspend=y MySmoola $INPUT_NAME
 
 # These are for the situation WITHOUT Smoola.java file
   # NORMAL

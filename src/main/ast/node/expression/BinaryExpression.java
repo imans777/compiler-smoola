@@ -39,9 +39,21 @@ public class BinaryExpression extends Expression {
     }
 
     @Override
+    public int getLine() { // also sets the line if not already set
+        if (line != -1)
+            return line;
+        else if (left.getLine() != -1)
+            line = left.getLine();
+        else if (right.getLine() != -1)
+            line = right.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "BinaryExpression " + binaryOperator.name();
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

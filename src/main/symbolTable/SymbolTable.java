@@ -42,8 +42,12 @@ public class SymbolTable {
 		items.put(item.getKey(), item);
 	}
 
-	public SymbolTableItem getInCurrentScope(String key) {
-		return items.get(key);
+	public SymbolTableItem getInCurrentScope(String key) throws ItemNotFoundException {
+		SymbolTableItem value = items.get(key);
+		if (value == null)
+			throw new ItemNotFoundException();
+		else
+			return value;
 	}
 
 	public SymbolTableItem get(String key) throws ItemNotFoundException {
@@ -58,5 +62,9 @@ public class SymbolTable {
 
 	public SymbolTable getPreSymbolTable() {
 		return pre;
+	}
+
+	public void setPreSymbolTable(SymbolTable pre) {
+		this.pre = pre;
 	}
 }

@@ -7,18 +7,21 @@ import ast.node.expression.Value.*;
 import ast.node.statement.*;
 
 
+import ast.Type.*;
+
 public interface Visitor {
     void visit (Program program);
 
     //Declarations
     void visit (ClassDeclaration classDeclaration);
     void visit (MethodDeclaration methodDeclaration);
-    void visit (VarDeclaration varDeclaration);
+    void visit (VarDeclaration varDeclaration, Mode mode);
 
     //Expressions
     void visit(ArrayCall arrayCall);
     void visit(BinaryExpression binaryExpression);
     void visit(Identifier identifier);
+    void visit(Identifier identifier, Mode mode);
     void visit(Length length);
     void visit(MethodCall methodCall);
     void visit(NewArray newArray);
@@ -36,10 +39,4 @@ public interface Visitor {
     void visit(MethodCallInMain methodCallInMain);
     void visit(While loop);
     void visit(Write write);
-
-
-
-
-
-
 }

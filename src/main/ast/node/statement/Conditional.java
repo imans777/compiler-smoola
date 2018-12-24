@@ -38,9 +38,19 @@ public class Conditional extends Statement {
     }
 
     @Override
+    public int getLine() { // also sets the line if not already set
+        if (line != -1)
+            return line;
+        else if (expression.getLine() != -1)
+            line = expression.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "Conditional";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

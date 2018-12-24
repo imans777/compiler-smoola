@@ -1,14 +1,15 @@
 package ast.node.expression.Value;
 
 import ast.Type.Type;
+import ast.Type.PrimitiveType.BooleanType;
 import ast.Visitor;
 
 public class BooleanValue extends Value {
-    private boolean constant;
+    private boolean constant = false;
 
-    public BooleanValue(boolean constant, Type type) {
+    public BooleanValue(boolean constant) {
+        super(new BooleanType());
         this.constant = constant;
-        this.type = type;
     }
 
     public boolean isConstant() {

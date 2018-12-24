@@ -29,9 +29,21 @@ public class Assign extends Statement {
     }
 
     @Override
+    public int getLine() { // also sets the line if not already set
+        if (line != -1)
+            return line;
+        else if (lValue.getLine() != -1)
+            line = lValue.getLine();
+        else if (rValue.getLine() != -1)
+            line = rValue.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "Assign";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

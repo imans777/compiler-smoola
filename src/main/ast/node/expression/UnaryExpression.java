@@ -29,12 +29,21 @@ public class UnaryExpression extends Expression {
     }
 
     @Override
+    public int getLine() { // also sets the line if not already set
+        if (line != -1)
+            return line;
+        else if (value.getLine() != -1)
+            line = value.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "UnaryExpression " + unaryOperator.name();
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);
     }
 }
-

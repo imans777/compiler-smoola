@@ -1,14 +1,15 @@
 package ast.node.expression.Value;
 
 import ast.Type.Type;
+import ast.Type.PrimitiveType.IntType;
 import ast.Visitor;
 
 public class IntValue extends Value {
-    private int constant;
+    private int constant = 0;
 
-    public IntValue(int constant, Type type) {
+    public IntValue(int constant) {
+        super(new IntType());
         this.constant = constant;
-        this.type = type;
     }
 
     public int getConstant() {

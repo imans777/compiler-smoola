@@ -24,6 +24,12 @@ public class VisitorImpl implements Visitor {
     private ArrayList<String> errorLogs = new ArrayList<String>();
     private int INDEX = 0;
     private HashMap<String, SymbolTable> classST = new HashMap<>();
+    private String currentClass = "";
+
+    private final String OBJECT_CLASS = "Object";
+    private final String TO_STRING_METHOD = "toString";
+    private final int MAX_STACK_NUM = 20;
+    private ClassDeclaration objectClass;
 
     public boolean hasError() {
         if (errorLogs.size() > 0) {
@@ -84,6 +90,11 @@ public class VisitorImpl implements Visitor {
     // ERROR#49 - method <methodName> arguments does not match with its declaration
     // ERROR#50 - self class inheritence
     // ERROR#51 - circular class inheritence
+    // ERROR#52 - array call index is not an integer
+    // ERROR#53 - length is not called upon array
+    // ERROR#54 - no method call on this object
+    // ERROR#55 - array call is not called upon an array
+    // ERROR#56 - max stack call reached
     public void produceError3(int type, int line, String info, String info2) {
         String message = "line:" + line + ":";
         ArrayList<String> errors = new ArrayList<String>();
@@ -99,7 +110,12 @@ public class VisitorImpl implements Visitor {
         errors.add("method " + info + " arguments does not match with its declaration");
 
         errors.add("self class inheritence");
-        errors.add("circular class inheritence");
+        errors.add("circular class inheritence in " + info);
+        errors.add("array call index is not an integer");
+        errors.add("length is not called upon an array type object");
+        errors.add("no method call available on this object");
+        errors.add("array call is not called upon an array");
+        errors.add("max stack called reached.");
 
         int index = type % 10;
         int set = type / 10;
@@ -118,53 +134,188 @@ public class VisitorImpl implements Visitor {
         produceError3(type, line, null);
     }
 
+    public String binaryOperatorToString(BinaryOperator bop) {
+        if (bop == BinaryOperator.add)
+            return "add";
+        else if (bop == BinaryOperator.sub)
+            return "sub";
+        else if (bop == BinaryOperator.mult)
+            return "mult";
+        else if (bop == BinaryOperator.div)
+            return "div";
+        else if (bop == BinaryOperator.and)
+            return "and";
+        else if (bop == BinaryOperator.or)
+            return "or";
+        else if (bop == BinaryOperator.eq)
+            return "eq";
+        else if (bop == BinaryOperator.neq)
+            return "neq";
+        else if (bop == BinaryOperator.lt)
+            return "lt";
+        else if (bop == BinaryOperator.gt)
+            return "gt";
+        else if (bop == BinaryOperator.assign)
+            return "assign";
+        return "null";
+    }
+
+    public String unaryOperatorToString(UnaryOperator uop) {
+        if (uop == UnaryOperator.minus)
+            return "minus";
+        else if (uop == UnaryOperator.not)
+            return "not";
+        return "null";
+    }
+
     // visit implemnetations
-    // NOTE: decided not to implement parent class declaration after child class!
     @Override
     public void visit(Program program) {
         log(program.toString());
         SymbolTable.push(new SymbolTable());
+
+        // hardcodedly add Object class and toString method
+        objectClass = new ClassDeclaration(new Identifier(OBJECT_CLASS), null);
+        MethodDeclaration toStringMethod = new MethodDeclaration(new Identifier(TO_STRING_METHOD));
+        toStringMethod.setReturnType(new StringType());
+        toStringMethod.setReturnValue(new StringValue(OBJECT_CLASS));
+        objectClass.addMethodDeclaration(toStringMethod);
+
+        // first just fill classST with empty symbolTables, then overwrite it
+        softTraverse(objectClass);
+        softTraverse(program.getMainClass());
+        for (ClassDeclaration cd : program.getClasses())
+            softTraverse(cd);
+        // second pass is for setting parent things in the pre symbolTable
+        secondPass(objectClass);
+        secondPass(program.getMainClass());
+        for (ClassDeclaration cd : program.getClasses())
+            secondPass(cd);
+
+        // now start traversing
+        // objectClass.accept(this);
         program.getMainClass().accept(this);
         for (ClassDeclaration cd : program.getClasses())
             cd.accept(this);
         SymbolTable.pop();
     }
 
+    public void softTraverse(ClassDeclaration cd) {
+        SymbolTable temp = new SymbolTable();
+        try {
+            temp.put(new SymbolTableClassItem(cd.getName().getName(), cd.getParentName(),
+                    new UserDefinedType(cd.getName())));
+        } catch (ItemAlreadyExistsException iaee) {
+        }
+        for (VarDeclaration vd : cd.getVarDeclarations())
+            softTraverse(vd, temp);
+        for (MethodDeclaration md : cd.getMethodDeclarations()) {
+            ArrayList<Type> argTypes = new ArrayList<>();
+            for (VarDeclaration vd : md.getArgs()) {
+                // softTraverse(vd, temp);
+                argTypes.add(vd.getType());
+            }
+            // for (VarDeclaration vd : md.getLocalVars())
+            // softTraverse(vd, temp);
+            try {
+                temp.put(new SymbolTableMethodItem(md.getName().getName(), argTypes, md.getReturnType()));
+            } catch (ItemAlreadyExistsException iaee) {
+            }
+        }
+
+        classST.put(cd.getName().getName(), temp);
+    }
+
+    public void softTraverse(VarDeclaration vd, SymbolTable temp) {
+        try {
+            temp.put(new SymbolTableVariableItem(vd.getIdentifier().getName(), vd.getType(), 0));
+        } catch (ItemAlreadyExistsException iaee) {
+        }
+    }
+
+    public void secondPass(ClassDeclaration cd) {
+        if (cd.getName().getName() == OBJECT_CLASS)
+            return;
+        if (cd.getParentName() != null && cd.getParentName().getName() != null) {
+            classST.get(cd.getName().getName())
+                    .setPreSymbolTable(new SymbolTable(classST.get(cd.getParentName().getName())));
+        } else {
+            classST.get(cd.getName().getName()).setPreSymbolTable(new SymbolTable(classST.get(OBJECT_CLASS)));
+        }
+    }
+
     // --------------------------- Declarations ----------------------------
     @Override
     public void visit(ClassDeclaration classDeclaration) {
+        currentClass = classDeclaration.getName().getName();
         log(classDeclaration.toString());
         try {
-            SymbolTable.top.put(new SymbolTableVariableItemBase(classDeclaration.getName().getName(),
-                    new UserDefinedType(), INDEX++));
+            SymbolTable.top.put(new SymbolTableClassItem(classDeclaration.getName().getName(),
+                    classDeclaration.getParentName(), new UserDefinedType(classDeclaration.getName())));
         } catch (ItemAlreadyExistsException iaee) {
             produceError(2, classDeclaration.getLine(), classDeclaration.getName().getName());
         }
 
+        boolean hasParent = false;
         if (classDeclaration.getParentName() != null && classDeclaration.getParentName().getName() != null) {
-            try {
-                // set pre symbolTable to its parent
-                SymbolTable.top.get("var|" + classDeclaration.getParentName().getName());
-                SymbolTable.push(new SymbolTable(classST.get(classDeclaration.getParentName().getName())));
-            } catch (ItemNotFoundException infe) {
-                // parent doesn't exist
-                produceError(0, classDeclaration.getLine(), classDeclaration.getParentName().getName());
-                SymbolTable.push(new SymbolTable());
+            if (classDeclaration.getName().getName().equals(classDeclaration.getParentName().getName())) {
+                produceError3(50, classDeclaration.getName().getLine());
+            } else {
+                hasParent = true;
+                // check circular dependency
+                Identifier parName = classDeclaration.getParentName();
+                int i = 0;
+                while (parName != null) {
+                    if (classDeclaration.getName().getName().equals(parName.getName())) {
+                        produceError3(51, classDeclaration.getName().getLine(), classDeclaration.getName().getName());
+                        hasParent = false;
+                        break;
+                    }
+                    if (i < MAX_STACK_NUM) {
+                        i++;
+                    } else {
+                        produceError3(56, classDeclaration.getName().getLine());
+                        hasParent = false;
+                        break;
+                    }
+                    try {
+                        parName = ((SymbolTableClassItem) classST.get(parName.getName())
+                                .get("class|" + parName.getName())).getParentName();
+                    } catch (Exception infe) {
+                        parName = null;
+                    }
+                }
+                if (hasParent) {
+                    SymbolTable st = classST.get(classDeclaration.getParentName().getName());
+                    if (st != null) {
+                        SymbolTable.push(new SymbolTable(st));
+                    } else {
+                        produceError3(34, classDeclaration.getLine(), classDeclaration.getParentName().getName());
+                        SymbolTable.push(new SymbolTable());
+                    }
+                    classDeclaration.getParentName().accept(this, Mode.DECLARE);
+                }
             }
-            classDeclaration.getParentName().accept(this);
-        } else {
-            // no extension
-            SymbolTable.push(new SymbolTable());
         }
 
-        classDeclaration.getName().accept(this);
+        if (!hasParent) {
+            // no parent (set parent to "Object" class, if not "Object" itself)
+            if (classDeclaration.getName().getName() != OBJECT_CLASS) {
+                SymbolTable.push(new SymbolTable(classST.get(OBJECT_CLASS)));
+            } else {
+                SymbolTable.push(new SymbolTable());
+            }
+        }
+
+        classDeclaration.getName().accept(this, Mode.DECLARE);
         for (VarDeclaration vd : classDeclaration.getVarDeclarations())
-            vd.accept(this);
+            vd.accept(this, Mode.CLASS);
         for (MethodDeclaration md : classDeclaration.getMethodDeclarations())
             md.accept(this);
 
         classST.put(classDeclaration.getName().getName(), SymbolTable.top);
         SymbolTable.pop();
+        currentClass = "";
     }
 
     @Override
@@ -180,43 +331,55 @@ public class VisitorImpl implements Visitor {
             produceError(4, methodDeclaration.getLine(), methodDeclaration.getName().getName());
         } catch (ItemNotFoundException infe) {
             try {
-                SymbolTable.top.put(new SymbolTableMethodItem(methodDeclaration.getName().getName(), argumentTypes));
+                SymbolTable.top.put(new SymbolTableMethodItem(methodDeclaration.getName().getName(), argumentTypes,
+                        methodDeclaration.getReturnType()));
             } catch (ItemAlreadyExistsException iaee) {
                 // method existence in current scope
                 produceError(4, methodDeclaration.getLine(), methodDeclaration.getName().getName());
             }
         }
 
-        SymbolTable.push(new SymbolTable());
-        methodDeclaration.getName().accept(this);
+        SymbolTable.push(new SymbolTable(SymbolTable.top)); // set class body to the 'pre' of method's SymbolTable
+        methodDeclaration.getName().accept(this, Mode.DECLARE);
         for (VarDeclaration arg : methodDeclaration.getArgs())
-            arg.accept(this);
+            arg.accept(this, Mode.METHOD);
         for (VarDeclaration vd : methodDeclaration.getLocalVars())
-            vd.accept(this);
+            vd.accept(this, Mode.METHOD);
 
         for (Statement st : methodDeclaration.getBody())
             st.accept(this);
-        methodDeclaration.getReturnValue().accept(this);
+
+        Expression returnValue = methodDeclaration.getReturnValue();
+        returnValue.accept(this);
+        if (returnValue.getType() != null) {
+            if (returnValue.getType().toString() != methodDeclaration.getReturnType().toString()) {
+                produceError3(38, returnValue.getLine(), methodDeclaration.getName().getName(),
+                        methodDeclaration.getReturnType().toString());
+            }
+        }
+
         SymbolTable.pop();
     }
 
     @Override
-    public void visit(VarDeclaration varDeclaration) {
+    public void visit(VarDeclaration varDeclaration, Mode mode) {
         log(varDeclaration.toString());
         try {
-            // variable existene in parents // TODO: check inCurrentScope
-            SymbolTable.top.getInCurrentScope("var|" + varDeclaration.getIdentifier().getName());
+            if (mode == Mode.CLASS)
+                SymbolTable.top.get("var|" + varDeclaration.getIdentifier().getName());
+            else if (mode == Mode.METHOD)
+                SymbolTable.top.getInCurrentScope("var|" + varDeclaration.getIdentifier().getName());
             produceError(3, varDeclaration.getIdentifier().getLine(), varDeclaration.getIdentifier().getName());
         } catch (ItemNotFoundException infe) {
             try {
-                SymbolTable.top.put(new SymbolTableVariableItemBase(varDeclaration.getIdentifier().getName(),
+                SymbolTable.top.put(new SymbolTableVariableItem(varDeclaration.getIdentifier().getName(),
                         varDeclaration.getType(), INDEX++));
             } catch (ItemAlreadyExistsException iaee) {
-                // variable existence in current scope
+                // variable existence in scope
                 produceError(3, varDeclaration.getIdentifier().getLine(), varDeclaration.getIdentifier().getName());
             }
         }
-        varDeclaration.getIdentifier().accept(this);
+        varDeclaration.getIdentifier().accept(this, Mode.DECLARE);
     }
 
     // -------------------------------- Expressions --------------------------------
@@ -225,23 +388,88 @@ public class VisitorImpl implements Visitor {
         log(arrayCall.toString());
         arrayCall.getInstance().accept(this);
         arrayCall.getIndex().accept(this);
+
+        try {
+            int line = arrayCall.getLine();
+            if (arrayCall.getIndex().getType().toString() != "int") {
+                produceError3(52, line);
+            }
+            if (arrayCall.getInstance().getType().toString() != "int[]") {
+                produceError3(55, line);
+            }
+        } catch (NullPointerException npe) { // NOTE: fix null ptr on undefined var (not submited)
+            // errorLog is already issued
+        }
+
     }
 
     @Override
     public void visit(BinaryExpression binaryExpression) {
         log(binaryExpression.toString());
-        binaryExpression.getLeft().accept(this);
-        binaryExpression.getRight().accept(this);
+
+        Expression left = binaryExpression.getLeft();
+        Expression right = binaryExpression.getRight();
+        left.accept(this);
+        right.accept(this);
+
+        int line = binaryExpression.getLine();
+        BinaryOperator bop = binaryExpression.getBinaryOperator();
+        if (bop == BinaryOperator.add || bop == BinaryOperator.sub || bop == BinaryOperator.mult
+                || bop == BinaryOperator.div || bop == BinaryOperator.lt || bop == BinaryOperator.gt) {
+            if (left.getType().toString() != "int" || right.getType().toString() != "int") {
+                produceError3(32, line, binaryOperatorToString(binaryExpression.getBinaryOperator()));
+            }
+            binaryExpression.setType(new IntType());
+            if (bop == BinaryOperator.lt || bop == BinaryOperator.gt)
+                binaryExpression.setType(new BooleanType());
+        } else if (bop == BinaryOperator.eq || bop == BinaryOperator.neq) {
+            String leftType = left.getType().toString();
+            String rightType = right.getType().toString();
+            if (leftType != rightType) {
+                produceError3(32, line, binaryOperatorToString(binaryExpression.getBinaryOperator()));
+            } else if (leftType != "int" && leftType != "string" && leftType != "bool" && leftType != "int[]") {
+                produceError3(32, line, binaryOperatorToString(binaryExpression.getBinaryOperator()));
+            }
+            binaryExpression.setType(new BooleanType());
+        } else if (bop == BinaryOperator.and || bop == BinaryOperator.or) {
+            if (left.getType().toString() != "bool" || right.getType().toString() != "bool") {
+                produceError3(32, line, binaryOperatorToString(binaryExpression.getBinaryOperator()));
+            }
+            binaryExpression.setType(new BooleanType());
+        } else {
+            System.out.println("should not come here!!");
+        }
     }
 
     @Override
     public void visit(Identifier identifier) {
+        visit(identifier, Mode.USE);
+    }
+
+    @Override
+    public void visit(Identifier identifier, Mode mode) {
         log(identifier.toString());
-        try { // TODO: what is get?
-            SymbolTableItem sti = SymbolTable.top.get("var|" + identifier.getName());
-            identifier.setType(sti.getType());
-        } catch (Exception infe) {
-            System.out.println("item not found exception");
+
+        if (mode == Mode.DECLARE)
+            return;
+
+        try {
+            SymbolTableItem stiv = SymbolTable.top.get("var|" + identifier.getName());
+            identifier.setType(stiv.getType());
+        } catch (ItemNotFoundException infe) {
+            try {
+                SymbolTableItem stim = SymbolTable.top.get("method|" + identifier.getName());
+                identifier.setType(stim.getType());
+            } catch (ItemNotFoundException infe2) {
+                try {
+                    SymbolTableItem stic = classST.get(identifier.getName()).get("class|" + identifier.getName());
+                    identifier.setType(stic.getType());
+                } catch (ItemNotFoundException infe3) {
+                    // produceError(0, identifier.getLine(), identifier.getName());
+                } catch (NullPointerException npe) {
+                    produceError3(31, identifier.getLine(), identifier.getName());
+                }
+            }
         }
     }
 
@@ -249,15 +477,106 @@ public class VisitorImpl implements Visitor {
     public void visit(Length length) {
         log(length.toString());
         length.getExpression().accept(this);
+
+        int line = length.getLine();
+        try {
+            if (length.getExpression().getType().toString() != "int[]") {
+                produceError3(53, line);
+            }
+        } catch (NullPointerException npe) {
+            produceError3(53, line);
+        }
     }
 
     @Override
     public void visit(MethodCall methodCall) {
         log(methodCall.toString());
         methodCall.getInstance().accept(this);
-        methodCall.getMethodName().accept(this);
+        methodCall.getMethodName().accept(this, Mode.DECLARE);
         for (Expression arg : methodCall.getArgs())
             arg.accept(this);
+
+        int line = methodCall.getLine();
+        methodCallErrorCheckings(methodCall, null);
+    }
+
+    public void methodCallErrorCheckings(MethodCall mc, MethodCallInMain mcim) {
+        Expression inst;
+        Identifier methodId;
+        ArrayList<Expression> args;
+        int line;
+
+        if (mc != null) {
+            inst = mc.getInstance();
+            methodId = mc.getMethodName();
+            args = mc.getArgs();
+            line = mc.getLine();
+        } else {
+            inst = mcim.getInstance();
+            methodId = mcim.getMethodName();
+            args = mcim.getArgs();
+            line = mcim.getLine();
+        }
+
+        String className = "";
+        if (inst instanceof This) {
+            // look in current symbolTable to have that method
+            className = currentClass;
+        } else if (inst instanceof NewClass) {
+            // look for that class symbolTable to have that method
+            className = ((UserDefinedType) inst.getType()).getName().getName();
+        } else if (inst instanceof Identifier) {
+            // look for that variable to be of type class, the class exists, and method
+            // exists on that class
+            try {
+                SymbolTableItem sti = SymbolTable.top.get("var|" + ((Identifier) inst).getName());
+                if (((UserDefinedType) (((SymbolTableVariableItem) sti).getTempClassReference())) != null) {
+                    className = ((UserDefinedType) ((SymbolTableVariableItem) sti).getTempClassReference()).getName()
+                            .getName();
+                } else {
+                    className = ((UserDefinedType) ((SymbolTableVariableItem) sti).getType()).getName().getName();
+                }
+            } catch (ItemNotFoundException infe) {
+                produceError3(34, line, ((Identifier) inst).getName());
+            }
+        } else {
+            produceError3(54, line);
+            return;
+        }
+
+        SymbolTable st = classST.get(className);
+        if (st == null) {
+            produceError3(34, line, className);
+        } else {
+            // lookup the method
+            String methodName = methodId.getName();
+            try {
+                SymbolTableItem sti = st.get("method|" + methodName);
+                if (mc != null)
+                    mc.setType(sti.getType());
+                else if (mcim != null)
+                    mcim.setType(sti.getType());
+                // check argument types
+                ArrayList<Type> arg = ((SymbolTableMethodItem) sti).getArgTypes();
+                ArrayList<Expression> argCall = args;
+                if (arg.size() != argCall.size()) {
+                    produceError3(49, line, methodName);
+                } else {
+                    try {
+                        for (int i = 0; i < arg.size(); i++) {
+                            if (arg.get(i).toString() != argCall.get(i).getType().toString()) {
+                                produceError3(49, line, methodName);
+                                break;
+                            }
+                        }
+                    } catch (IndexOutOfBoundsException ioobe) {
+                        produceError3(49, line, methodName);
+                    }
+                }
+            } catch (ItemNotFoundException infe) {
+                produceError3(35, line, methodName, className);
+            }
+        }
     }
 
     @Override
@@ -275,6 +594,9 @@ public class VisitorImpl implements Visitor {
     public void visit(NewClass newClass) {
         log(newClass.toString());
         newClass.getClassName().accept(this);
+
+        int line = newClass.getLine();
+        newClass.setType(new UserDefinedType(new Identifier(newClass.getClassName().getName())));
     }
 
     @Override
@@ -286,7 +608,21 @@ public class VisitorImpl implements Visitor {
     public void visit(UnaryExpression unaryExpression) {
         log(unaryExpression.toString());
         unaryExpression.getValue().accept(this);
-        unaryExpression.setType(unaryExpression.getValue().getType());
+
+        int line = unaryExpression.getLine();
+        if (unaryExpression.getUnaryOperator() == UnaryOperator.minus) {
+            if (unaryExpression.getValue().getType().toString() != "int") {
+                produceError3(32, line, unaryOperatorToString(unaryExpression.getUnaryOperator()));
+            }
+            unaryExpression.setType(new IntType());
+        } else if (unaryExpression.getUnaryOperator() == UnaryOperator.not) {
+            if (unaryExpression.getValue().getType().toString() != "bool") {
+                produceError3(32, line, unaryOperatorToString(unaryExpression.getUnaryOperator()));
+            }
+            unaryExpression.setType(new BooleanType());
+        } else {
+            System.out.println("should not ever come here!");
+        }
     }
 
     @Override
@@ -308,8 +644,65 @@ public class VisitorImpl implements Visitor {
     @Override
     public void visit(Assign assign) {
         log(assign.toString());
-        assign.getlValue().accept(this);
-        assign.getrValue().accept(this);
+        Expression left = assign.getlValue();
+        Expression right = assign.getrValue();
+        left.accept(this);
+        right.accept(this);
+        int line = assign.getLine();
+
+        try {
+            if (!(left instanceof Identifier)) {
+                if (!(left instanceof ArrayCall)) // NOTE: fix array call (not submitted)
+                    produceError3(37, line);
+            } else {
+                try {
+                    SymbolTable.top.get("var|" + ((Identifier) left).getName());
+                } catch (ItemNotFoundException infe) {
+                    produceError3(37, line);
+                }
+            }
+
+            if (left.getType() instanceof UserDefinedType && right.getType() instanceof UserDefinedType) {
+                UserDefinedType ltype = (UserDefinedType) (left.getType());
+                UserDefinedType rtype = (UserDefinedType) (right.getType());
+                int i = 0;
+                while (!ltype.toString().equals(rtype.toString())) {
+                    if (i < MAX_STACK_NUM) {
+                        i++;
+                    } else {
+                        produceError3(56, line);
+                        break;
+                    }
+                    SymbolTableItem sti;
+                    try {
+                        String rname = rtype.getName().getName();
+                        sti = classST.get(rname).get("class|" + rname);
+                    } catch (ItemNotFoundException infe) {
+                        produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
+                        return;
+                    }
+                    Identifier parentName = ((SymbolTableClassItem) sti).getParentName();
+                    if (parentName == null) {
+                        produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
+                        return;
+                    }
+                    rtype = new UserDefinedType(parentName);
+                }
+                try {
+                    ((SymbolTableVariableItem) (SymbolTable.top.get("var|" + ((Identifier) left).getName())))
+                            .setTempClassReference(right.getType());
+                } catch (ItemNotFoundException infe) {
+                }
+            } else if (left.getType() instanceof UserDefinedType || right.getType() instanceof UserDefinedType) {
+                produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
+            } else {
+                if (left.getType().toString() != right.getType().toString()) {
+                    produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
+                }
+            }
+        } catch (NullPointerException npe) {
+            produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
+        }
     }
 
     @Override
@@ -324,16 +717,25 @@ public class VisitorImpl implements Visitor {
         log(conditional.toString());
         conditional.getExpression().accept(this);
         conditional.getConsequenceBody().accept(this);
-        conditional.getAlternativeBody().accept(this);
+        if (conditional.getAlternativeBody() != null)
+            conditional.getAlternativeBody().accept(this);
+
+        int line = conditional.getLine();
+        if (conditional.getExpression().getType().toString() != "bool") {
+            produceError3(33, line);
+        }
     }
 
     @Override
     public void visit(MethodCallInMain methodCallInMain) {
         log(methodCallInMain.toString());
         methodCallInMain.getInstance().accept(this);
-        methodCallInMain.getMethodName().accept(this);
+        methodCallInMain.getMethodName().accept(this, Mode.DECLARE);
         for (Expression arg : methodCallInMain.getArgs())
             arg.accept(this);
+
+        int line = methodCallInMain.getLine();
+        methodCallErrorCheckings(null, methodCallInMain);
     }
 
     @Override
@@ -341,28 +743,28 @@ public class VisitorImpl implements Visitor {
         log(loop.toString());
         loop.getCondition().accept(this);
         loop.getBody().accept(this);
+
+        int line = loop.getLine();
+        if (loop.getCondition().getType().toString() != "bool") {
+            produceError3(33, line);
+        }
     }
 
     @Override
     public void visit(Write write) {
         log(write.toString());
-        write.getArg().accept(this);
 
-        Type t = write.getArg().getType();
-        System.out.println(t instanceof Type);
-        System.out.println(t instanceof IntType);
-        System.out.println(t instanceof StringType);
-        System.out.println(t instanceof BooleanType);
-        System.out.println(t instanceof NoType);
-        System.out.println(t instanceof UserDefinedType); // TODO: why String typed variable in the same scope is UserDefined?!
-        System.out.println(t == null);
-        System.out.println("-----------");
+        Expression arg = write.getArg();
+        arg.accept(this);
 
-        // System.out.println(t.getClass().getName());
-
-        // if (write.getArg().getType().toString() != "int" ||
-        // write.getArg().getType().toString() != "string") {
-        // produceError3(36, write.getArg().getLine()); // line is not declared for statement!!!
-        // }
+        Type type = arg.getType();
+        int line = arg.getLine();
+        if (type != null) {
+            if (type.toString() != "int" && type.toString() != "string") {
+                produceError3(36, line);
+            }
+        } else {
+            // System.out.println("should not come here!!!");
+        }
     }
 }

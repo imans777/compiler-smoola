@@ -5,8 +5,15 @@ import ast.Visitor;
 import ast.node.Node;
 
 public abstract class Expression extends Node {
-    private Type type = null;
-    private int line = -1;
+    protected Type type = null;
+    protected int line = -1;
+
+    public Expression() {
+    }
+
+    public Expression(Type _type) {
+        type = _type;
+    }
 
     public Type getType() {
         return type;

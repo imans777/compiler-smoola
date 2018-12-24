@@ -14,7 +14,6 @@ src/main/org/
 src/main/*.interp
 src/main/*.tokens
 src/main/Smoola*.java
-!src/main/Smoola.java
 src/main/Smoola*.class
 **/*.class
 **/M*_ERR_*

@@ -53,7 +53,8 @@ mainClass
             mmd.addStatement(st);
         }
         mmd.setReturnType(new IntType());
-    } 'return' r = expression {
+    } RETURN = 'return' r = expression {
+        $r.e.setLine($RETURN.getLine());
         mmd.setReturnValue($r.e);
     } ';' '}' '}' {
         $cd.addMethodDeclaration(mmd);
@@ -116,7 +117,8 @@ methodDeclaration
 	)* methodst = statements {
         for(Statement si: $methodst.sts)
             $md.addStatement(si);
-    } 'return' returnVal = expression {
+    } RETURN = 'return' returnVal = expression {
+        $returnVal.e.setLine($RETURN.getLine());
         $md.setReturnValue($returnVal.e);
     } ';' '}';
 
@@ -459,22 +461,19 @@ expressionMethodsTemp[Expression pastExpMethods]
 expressionOther
 	returns[Expression exp]:
 	expNum = CONST_NUM {
-        Type type = new IntType();
         int num = Integer.parseInt($expNum.getText());
-        $exp = new IntValue(num, type);
+        $exp = new IntValue(num);
         $exp.setLine($expNum.getLine());
     }
 	| expStr = CONST_STR {
-        Type type = new StringType();
         String str = $expStr.getText();
-        $exp = new StringValue(str, type);
+        $exp = new StringValue(str);
         $exp.setLine($expStr.getLine());
     }
 	| 'new ' 'int' '[' expArrLength = CONST_NUM ']' {
-        NewArray newArr = new NewArray();
-        Type type = new IntType();
+        NewArray newArr = new NewArray(); // by default, it sets the type to ArrayType
         int num = Integer.parseInt($expArrLength.getText());
-        Expression inside = new IntValue(num, type);
+        Expression inside = new IntValue(num);
         ((NewArray)newArr).setLine($expArrLength.getLine());
         ((NewArray)newArr).setExpression(inside);
         $exp = newArr;
@@ -482,23 +481,21 @@ expressionOther
 	| 'new ' expClassId = ID '(' ')' {
         Identifier id = new Identifier($expClassId.getText());
         id.setLine($expClassId.getLine());
-        $exp = new NewClass(id);
+        $exp = new NewClass(id); // by default, it sets the type to UserDefinedType
     }
 	| expThis = 'this' {
         $exp = new This();
         $exp.setLine($expThis.getLine());
-        $exp.setType(new UserDefinedType());
+        // $exp.setType(new UserDefinedType());
     }
 	| expT = 'true' {
-        Type type = new BooleanType();
         boolean val = true;
-        $exp = new BooleanValue(val, type);
+        $exp = new BooleanValue(val);
         $exp.setLine($expT.getLine());
     }
 	| expF = 'false' {
-        Type type = new BooleanType();
         boolean val = false;
-        $exp = new BooleanValue(val, type);
+        $exp = new BooleanValue(val);
         $exp.setLine($expF.getLine());
     }
 	| expId = ID {
@@ -510,7 +507,7 @@ expressionOther
         Expression inst = new Identifier($expArrId.getText());
         ((Identifier)inst).setLine($expArrId.getLine());
         Expression indx = $expArrIdx.e;
-        $exp = new ArrayCall(inst, indx);
+        $exp = new ArrayCall(inst, indx); // by default, it sets the type to IntType
     }
 	| '(' cexp = expression ')' {
         $exp = $cexp.e;
@@ -522,7 +519,7 @@ type
 	| 'boolean' { $t = new BooleanType(); }
 	| 'string' { $t = new StringType(); }
 	| 'int' '[' ']' { $t = new ArrayType(); }
-	| ID { $t = new UserDefinedType(); };
+	| id = ID { $t = new UserDefinedType(getID($id.getText(), $id.getLine())); };
 
 // lexer rules (start with uppercase) can not reference object nor returning sth
 CONST_NUM: [0-9]+;

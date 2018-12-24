@@ -7,10 +7,10 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import ast.VisitorImpl;
 import ast.node.Program;
 
-
-public class Smoola {
+public class MySmoola {
   static String SMOOLA_CODE_FILE = "in.sml";
-  public static void main(String[] args) throws IOException {    
+
+  public static void main(String[] args) throws IOException {
     if (args.length > 0) {
       SMOOLA_CODE_FILE = args[0];
     }
@@ -21,7 +21,11 @@ public class Smoola {
     Program p = parser.program().p;
 
     VisitorImpl vis = new VisitorImpl();
-    p.accept(vis);
+    try {
+      p.accept(vis);
+    } catch (StackOverflowError sofe) {
+      System.out.println("STACK OVERFLOW EXCEPTION");
+    }
     vis.show();
   }
 }

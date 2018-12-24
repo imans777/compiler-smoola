@@ -29,9 +29,19 @@ public class While extends Statement {
     }
 
     @Override
+    public int getLine() { // also sets the line if not already set
+        if (line != -1)
+            return line;
+        else if (condition.getLine() != -1)
+            line = condition.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "While";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);

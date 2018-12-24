@@ -1,12 +1,17 @@
 package ast.node.expression;
 
 import ast.Visitor;
+import ast.Type.ArrayType.ArrayType;
 import ast.node.expression.Value.IntValue;
 import ast.node.expression.UnaryExpression;
 
 public class NewArray extends Expression {
     private Expression expression;
     private int line = -1;
+
+    public NewArray() {
+        super(new ArrayType());
+    }
 
     public Expression getExpression() {
         return expression;

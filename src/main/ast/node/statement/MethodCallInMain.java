@@ -45,6 +45,17 @@ public class MethodCallInMain extends Statement {
     }
 
     @Override
+    public int getLine() { // also sets the line if not already set
+        if (line != -1)
+            return line;
+        else if (instance.getLine() != -1)
+            line = instance.getLine();
+        else if (methodName.getLine() != -1)
+            line = methodName.getLine();
+        return line;
+    }
+
+    @Override
     public String toString() {
         return "MethodCallInMain";
     }

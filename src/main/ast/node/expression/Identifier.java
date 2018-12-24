@@ -1,6 +1,7 @@
 package ast.node.expression;
 
 import ast.Visitor;
+import ast.Type.Mode;
 
 public class Identifier extends Expression {
     private String name;
@@ -25,5 +26,10 @@ public class Identifier extends Expression {
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public void accept(Visitor visitor, Mode mode) {
+        visitor.visit(this, mode);
     }
 }
