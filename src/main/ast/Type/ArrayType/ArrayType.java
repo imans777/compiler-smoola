@@ -9,6 +9,11 @@ public class ArrayType extends Type {
         return "int[]";
     }
 
+    @Override
+    public String getJasminCode() {
+        return "[I";
+    }
+
     public int getSize() {
         return size;
     }

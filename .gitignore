@@ -11,12 +11,15 @@ org/
 src/main/javax/
 src/main/META-INF/
 src/main/org/
+src/main/jasmin-2.4/
 src/main/*.interp
 src/main/*.tokens
 src/main/Smoola*.java
 src/main/Smoola*.class
+src/main/output/
 **/*.class
 **/M*_ERR_*
+# **/*.j
 
 # User-specific stuff
 .idea/**/workspace.xml

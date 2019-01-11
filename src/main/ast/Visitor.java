@@ -14,7 +14,9 @@ public interface Visitor {
 
     //Declarations
     void visit (ClassDeclaration classDeclaration);
+    void visit (ClassDeclaration classDeclaration, Mode mode);
     void visit (MethodDeclaration methodDeclaration);
+    void visit (MethodDeclaration methodDeclaration, Mode mode);
     void visit (VarDeclaration varDeclaration, Mode mode);
 
     //Expressions

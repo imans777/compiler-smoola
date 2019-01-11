@@ -25,4 +25,9 @@ public class UserDefinedType extends Type {
     public String toString() {
         return (name != null ? name.getName() : "");
     }
+
+    @Override
+    public String getJasminCode() {
+        return "L" + name.getName() + ";";
+    }
 }

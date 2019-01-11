@@ -1,10 +1,9 @@
 import java.io.IOException;
 
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.*;
 
 import ast.VisitorImpl;
+import ast.VisitorJasmin;
 import ast.node.Program;
 
 public class MySmoola {
@@ -25,7 +24,19 @@ public class MySmoola {
       p.accept(vis);
     } catch (StackOverflowError sofe) {
       System.out.println("STACK OVERFLOW EXCEPTION");
+    } catch (Exception e) {
+      System.out.println("A VERY BAD ERROR OCCURRED: " + e.toString());
     }
     vis.show();
+
+    if (vis.hasError()) {
+      System.out.println("-> Fix Smoola code errors first before Java Bytecode production.\n");
+      return;
+    }
+
+    VisitorJasmin jh = new VisitorJasmin(vis);
+    p.accept(jh);
+
+    // not run the app (from "run.sh")
   }
 }

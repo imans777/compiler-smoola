@@ -10,20 +10,28 @@ import ast.node.expression.Value.IntValue;
 import ast.node.expression.Value.StringValue;
 import ast.node.statement.*;
 import ast.Type.*;
-import ast.Type.ArrayType.*;
 import ast.Type.PrimitiveType.*;
 import ast.Type.UserDefinedType.UserDefinedType;
 import symbolTable.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+
+/* PHASE 4 BUGS: 
+    -> NOTHING UNRESOLVED ISSUED!!!
+*/
 
 public class VisitorImpl implements Visitor {
     private ArrayList<String> preorderLogs = new ArrayList<String>();
     private ArrayList<String> errorLogs = new ArrayList<String>();
-    private int INDEX = 0;
-    private HashMap<String, SymbolTable> classST = new HashMap<>();
+
+    // maps class names to their symbol table
+    public HashMap<String, SymbolTable> classST = new HashMap<>();
+
+    // maps the (class, method) key to that method's symbol table
+    public HashMap<Key, SymbolTable> methodsST = new HashMap<>();
+
+    // saves the current class name (mostly for handling 'this')
     private String currentClass = "";
 
     private final String OBJECT_CLASS = "Object";
@@ -48,8 +56,9 @@ public class VisitorImpl implements Visitor {
 
     public void show() {
         if (!hasError()) {
-            for (String p : preorderLogs)
-                System.out.println(p);
+            // NOTE: comment out as it's not useful in phase 4
+            // for (String p : preorderLogs)
+            // System.out.println(p);
         } else {
             for (String e : errorLogs)
                 System.out.println(e);
@@ -95,6 +104,7 @@ public class VisitorImpl implements Visitor {
     // ERROR#54 - no method call on this object
     // ERROR#55 - array call is not called upon an array
     // ERROR#56 - max stack call reached
+    // ERROR#57 - invalid statement
     public void produceError3(int type, int line, String info, String info2) {
         String message = "line:" + line + ":";
         ArrayList<String> errors = new ArrayList<String>();
@@ -116,6 +126,7 @@ public class VisitorImpl implements Visitor {
         errors.add("no method call available on this object");
         errors.add("array call is not called upon an array");
         errors.add("max stack called reached.");
+        errors.add("invalid statement");
 
         int index = type % 10;
         int set = type / 10;
@@ -186,6 +197,7 @@ public class VisitorImpl implements Visitor {
         softTraverse(program.getMainClass());
         for (ClassDeclaration cd : program.getClasses())
             softTraverse(cd);
+
         // second pass is for setting parent things in the pre symbolTable
         secondPass(objectClass);
         secondPass(program.getMainClass());
@@ -228,7 +240,7 @@ public class VisitorImpl implements Visitor {
 
     public void softTraverse(VarDeclaration vd, SymbolTable temp) {
         try {
-            temp.put(new SymbolTableVariableItem(vd.getIdentifier().getName(), vd.getType(), 0));
+            temp.put(new SymbolTableVariableItem(vd.getIdentifier().getName(), vd.getType(), currentClass));
         } catch (ItemAlreadyExistsException iaee) {
         }
     }
@@ -245,6 +257,11 @@ public class VisitorImpl implements Visitor {
     }
 
     // --------------------------- Declarations ----------------------------
+    @Override
+    public void visit(ClassDeclaration classDeclaration, Mode mode) {
+        visit(classDeclaration); // mode is not used here, but in VisitorJasmin
+    }
+
     @Override
     public void visit(ClassDeclaration classDeclaration) {
         currentClass = classDeclaration.getName().getName();
@@ -319,6 +336,11 @@ public class VisitorImpl implements Visitor {
     }
 
     @Override
+    public void visit(MethodDeclaration methodDeclaration, Mode mode) {
+        visit(methodDeclaration); // mode is not used here, but in VisitorJasmin
+    }
+
+    @Override
     public void visit(MethodDeclaration methodDeclaration) {
         log(methodDeclaration.toString());
         ArrayList<Type> argumentTypes = new ArrayList<>();
@@ -340,24 +362,31 @@ public class VisitorImpl implements Visitor {
         }
 
         SymbolTable.push(new SymbolTable(SymbolTable.top)); // set class body to the 'pre' of method's SymbolTable
+        SymbolTableVariableItem.resetIndexController(); // reset index for each method
         methodDeclaration.getName().accept(this, Mode.DECLARE);
         for (VarDeclaration arg : methodDeclaration.getArgs())
             arg.accept(this, Mode.METHOD);
         for (VarDeclaration vd : methodDeclaration.getLocalVars())
             vd.accept(this, Mode.METHOD);
 
-        for (Statement st : methodDeclaration.getBody())
-            st.accept(this);
+        for (Statement st : methodDeclaration.getBody()) {
+            try {
+                st.accept(this);
+            } catch (NullPointerException npe) {
+                produceError3(57, -1);
+            }
+        }
 
         Expression returnValue = methodDeclaration.getReturnValue();
         returnValue.accept(this);
         if (returnValue.getType() != null) {
-            if (returnValue.getType().toString() != methodDeclaration.getReturnType().toString()) {
+            if (!returnValue.getType().toString().equals(methodDeclaration.getReturnType().toString())) {
                 produceError3(38, returnValue.getLine(), methodDeclaration.getName().getName(),
                         methodDeclaration.getReturnType().toString());
             }
         }
 
+        methodsST.put(new Key(currentClass, methodDeclaration.getName().getName()), SymbolTable.top);
         SymbolTable.pop();
     }
 
@@ -373,7 +402,7 @@ public class VisitorImpl implements Visitor {
         } catch (ItemNotFoundException infe) {
             try {
                 SymbolTable.top.put(new SymbolTableVariableItem(varDeclaration.getIdentifier().getName(),
-                        varDeclaration.getType(), INDEX++));
+                        varDeclaration.getType(), currentClass));
             } catch (ItemAlreadyExistsException iaee) {
                 // variable existence in scope
                 produceError(3, varDeclaration.getIdentifier().getLine(), varDeclaration.getIdentifier().getName());
@@ -397,7 +426,7 @@ public class VisitorImpl implements Visitor {
             if (arrayCall.getInstance().getType().toString() != "int[]") {
                 produceError3(55, line);
             }
-        } catch (NullPointerException npe) { // NOTE: fix null ptr on undefined var (not submited)
+        } catch (NullPointerException npe) {
             // errorLog is already issued
         }
 
@@ -437,7 +466,14 @@ public class VisitorImpl implements Visitor {
             }
             binaryExpression.setType(new BooleanType());
         } else {
-            System.out.println("should not come here!!");
+            if (bop == BinaryOperator.assign) {
+                // after the first '=' in a multi-assignment statemnet, other '='s are counted
+                // as BinaryExpression!
+                handleAssignment(left, right, line);
+                binaryExpression.setType(left.getType());
+            } else {
+                System.out.println("should not come here!!");
+            }
         }
     }
 
@@ -602,6 +638,7 @@ public class VisitorImpl implements Visitor {
     @Override
     public void visit(This instance) {
         log(instance.toString());
+        instance.setType(new UserDefinedType(new Identifier(currentClass)));
     }
 
     @Override
@@ -649,10 +686,13 @@ public class VisitorImpl implements Visitor {
         left.accept(this);
         right.accept(this);
         int line = assign.getLine();
+        handleAssignment(left, right, line);
+    }
 
+    public void handleAssignment(Expression left, Expression right, int line) {
         try {
             if (!(left instanceof Identifier)) {
-                if (!(left instanceof ArrayCall)) // NOTE: fix array call (not submitted)
+                if (!(left instanceof ArrayCall))
                     produceError3(37, line);
             } else {
                 try {
@@ -696,13 +736,17 @@ public class VisitorImpl implements Visitor {
             } else if (left.getType() instanceof UserDefinedType || right.getType() instanceof UserDefinedType) {
                 produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
             } else {
-                if (left.getType().toString() != right.getType().toString()) {
+                if (!left.getType().toString().equals(right.getType().toString())) {
                     produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
                 }
             }
         } catch (NullPointerException npe) {
             produceError3(32, line, binaryOperatorToString(BinaryOperator.assign));
         }
+    }
+
+    public void handleAssignment(Expression left, Expression right) {
+        handleAssignment(left, right, left.getLine());
     }
 
     @Override

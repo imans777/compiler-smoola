@@ -1,6 +1,5 @@
 package ast.node.expression.Value;
 
-import ast.Type.Type;
 import ast.Type.PrimitiveType.BooleanType;
 import ast.Visitor;
 

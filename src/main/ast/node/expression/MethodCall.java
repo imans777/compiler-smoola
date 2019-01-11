@@ -1,6 +1,5 @@
 package ast.node.expression;
 
-import ast.Type.Type;
 import ast.Visitor;
 
 import java.util.ArrayList;

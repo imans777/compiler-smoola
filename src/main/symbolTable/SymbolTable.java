@@ -25,6 +25,40 @@ public class SymbolTable {
 		top = stack.pop();
 	}
 
+	// is used to get the index of a variable
+	public static int getIndex(String varkey) {
+		try {
+			SymbolTableItem sti = top.get("var|" + varkey);
+			return ((SymbolTableVariableItem) sti).getIndex();
+		} catch (ItemNotFoundException infe) { // definitely exists in symbol table! because we've already type-checked it
+			System.out.println("WEIRD ERROR: " + infe.toString());
+			return -1;
+		}
+	}
+
+	// is used to get the jasmin code of a specific variable,
+	// with or without class field descriptor
+	public static String getJasminCode(String varkey, Boolean withClass) {
+		try {
+			SymbolTableItem sti = top.get("var|" + varkey);
+			SymbolTableVariableItem stvi = (SymbolTableVariableItem) sti;
+			return stvi.getJasminCode(withClass);
+		} catch (ItemNotFoundException infe) { // definitely exists in symbol table! because we've already type-checked it
+			System.out.println("WEIRD ERROR: " + infe.toString());
+			return null;
+		}
+	}
+
+	// is used only in methods, so currentScope of the top symbolTable is the method symbolTable,
+	// so if no result was found with getInCurrentScope function, it means it's a class field!
+	public static Boolean isClassField(String varkey) {
+		try {
+			SymbolTableItem sti = top.getInCurrentScope("var|" + varkey);
+			return false;
+		} catch (ItemNotFoundException infe) {
+			return true;
+		}
+	}
 	// End of static members region
 
 	public SymbolTable() {

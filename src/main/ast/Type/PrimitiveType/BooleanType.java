@@ -7,4 +7,9 @@ public class BooleanType extends Type {
     public String toString() {
         return "bool";
     }
+
+    @Override
+    public String getJasminCode() {
+        return "Z";
+    }
 }

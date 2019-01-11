@@ -1,11 +1,13 @@
 package ast.node.declaration;
 
 import ast.Visitor;
+import ast.Type.Mode;
 import ast.node.expression.Identifier;
 
 import java.util.ArrayList;
 
-public class ClassDeclaration extends Declaration{
+public class ClassDeclaration extends Declaration {
+    public final String OBJECT = "java/lang/Object";
     private Identifier name;
     private Identifier parentName;
     private ArrayList<VarDeclaration> varDeclarations = new ArrayList<>();
@@ -26,6 +28,13 @@ public class ClassDeclaration extends Declaration{
 
     public Identifier getParentName() {
         return parentName;
+    }
+
+    public String getParentJasminCode() {
+        if (this.parentName != null && this.parentName.getName() != "Object" && this.parentName.getName() != null)
+            return parentName.getName();
+        else
+            return OBJECT;
     }
 
     public void setParentName(Identifier parentName) {
@@ -56,8 +65,14 @@ public class ClassDeclaration extends Declaration{
     public String toString() {
         return "ClassDeclaration";
     }
+
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public void accept(Visitor visitor, Mode mode) {
+        visitor.visit(this, mode);
     }
 }

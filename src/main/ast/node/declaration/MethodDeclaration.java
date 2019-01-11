@@ -1,5 +1,6 @@
 package ast.node.declaration;
 
+import ast.Type.Mode;
 import ast.Type.Type;
 import ast.Visitor;
 import ast.node.expression.Expression;
@@ -72,6 +73,17 @@ public class MethodDeclaration extends Declaration {
         return name.getLine();
     }
 
+    public String getArgsJasmineCode() {
+        StringBuilder argsJC = new StringBuilder();
+        for (VarDeclaration vd : this.args)
+            argsJC.append(vd.getJasminCode());
+        return argsJC.toString();
+    }
+
+    public String getReturnJasmineCode() {
+        return returnType.getJasminCode();
+    }
+
     @Override
     public String toString() {
         return "MethodDeclaration";
@@ -80,5 +92,10 @@ public class MethodDeclaration extends Declaration {
     @Override
     public void accept(Visitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public void accept(Visitor visitor, Mode mode) {
+        visitor.visit(this, mode);
     }
 }

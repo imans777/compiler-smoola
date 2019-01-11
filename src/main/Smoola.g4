@@ -209,8 +209,10 @@ statementWrite
 statementAssignment
 	returns[Assign stassign]:
 	stass = expression {
-        BinaryExpression be = (BinaryExpression)$stass.e;
-        $stassign = new Assign(be.getLeft(), be.getRight());
+        if ($stass.e instanceof BinaryExpression) {
+            BinaryExpression be = (BinaryExpression)$stass.e;
+            $stassign = new Assign(be.getLeft(), be.getRight());
+        }
     } ';';
 
 mainStatementAssignmentAndMethodCall

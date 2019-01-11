@@ -30,11 +30,15 @@ public class VarDeclaration extends Declaration {
         this.type = type;
     }
 
+    public String getJasminCode() {
+        return type.getJasminCode();
+    }
+
     @Override
     public String toString() {
         return "VarDeclaration";
     }
-    
+
     @Override
     public void accept(Visitor visitor, Mode mode) {
         visitor.visit(this, mode);

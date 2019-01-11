@@ -26,9 +26,19 @@ package ast.Type;
  *  we only produce error when we are in USE mode.
  *  note: in "class a extends b", in both "a" and "b", we are in DECLARE mode!
  *  note: in "new b().func()", in "func", we are in DECLARE mode!
+ * 
+ * MAIN, NOTMAIN:
+ *  this is used in VisitorJasmin, for checking if we are in the main
+ *  method of the main class or other methods
+ *  Reason: because we need to set "static main" and other initiations
+ *  in the jasmin visitor so that we can distinguish between them
  */
 public enum Mode {
   CLASS, METHOD,
 
   DECLARE, USE,
+
+  MAIN, NOTMAIN,
+
+
 }
